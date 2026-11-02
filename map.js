@@ -255,12 +255,24 @@ function initGasMap(containerId,opts={}){
    · 某某市整体市界发光描边
    · 中心高光脉冲标记
    ============================================================ */
+// GeoJSON 数据源：优先本地 data/ 目录（随站点部署，零外网依赖），失败回退阿里云在线服务
+const GEO_SRC={
+  jlFull :['data/220000_full.json','https://geo.datav.aliyun.com/areas_v3/bound/220000_full.json'],
+  syFull :['data/220700_full.json','https://geo.datav.aliyun.com/areas_v3/bound/220700_full.json'],
+  syOuter:['data/220700.json','https://geo.datav.aliyun.com/areas_v3/bound/220700.json'],
+};
+async function fetchGeoJson(urls){
+  for(const u of urls){
+    try{const r=await fetch(u,{cache:'force-cache'});if(r.ok)return await r.json()}catch(_){}
+  }
+  throw new Error('GeoJSON 加载失败: '+urls.join(' | '));
+}
 async function loadAdminGeo(map){
   try{
     // 1) 拉取 GeoJSON：吉林省外轮廓 + 松原5区县
     const [jlFull, syFull] = await Promise.all([
-      fetch('https://geo.datav.aliyun.com/areas_v3/bound/220000_full.json',{cache:'force-cache'}).then(r=>r.json()),
-      fetch('https://geo.datav.aliyun.com/areas_v3/bound/220700_full.json',{cache:'force-cache'}).then(r=>r.json())
+      fetchGeoJson(GEO_SRC.jlFull),
+      fetchGeoJson(GEO_SRC.syFull)
     ]);
 
     // 2) 吉林省：淡外轮廓，不填充
@@ -336,7 +348,7 @@ async function loadAdminGeo(map){
     }).addTo(map);
 
     // 4) 某某市外发光描边（整体市界）：2 层叠加营造辉光
-    const syOuter=await fetch('https://geo.datav.aliyun.com/areas_v3/bound/220700.json',{cache:'force-cache'}).then(r=>r.json());
+    const syOuter=await fetchGeoJson(GEO_SRC.syOuter);
     // 外发光
     const syGlowPane=map.createPane('syGlowPane');syGlowPane.style.zIndex=5;
     L.geoJSON(syOuter,{
